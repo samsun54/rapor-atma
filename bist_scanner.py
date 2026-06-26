@@ -3,20 +3,17 @@ import time
 import datetime
 import pandas as pd
 import requests
+import yfinance as yf
 import matplotlib
-matplotlib.use('Agg') # GitHub Actions'da ekran olmadığı için
+matplotlib.use('Agg')
 import mplfinance as mpf
 import matplotlib.pyplot as plt
 from fpdf import FPDF
-from tvDatafeed import TvDatafeed, Interval
 import asyncio
 from telegram import Bot
 
 # --- AYARLAR ---
-# Local'de test ederken buraya kendi bilgilerini yaz. 
-# GitHub'a atınca bu değerleri sil, GitHub Secrets kısmından ver.
-TV_USERNAME = os.environ.get('TV_USER', 'SIZIN_TRADINGVIEW_KULLANICI_ADINIZ')
-TV_PASSWORD = os.environ.get('TV_PASS', 'SIZIN_TRADINGVIEW_SIFRENIZ')
+# Artık TradingView şifresi yok! Sadece Telegram bilgileri kalıyor.
 TELEGRAM_BOT_TOKEN = os.environ.get('TG_TOKEN', 'SIZIN_TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.environ.get('TG_CHAT_ID', 'SIZIN_KANAL_CHAT_ID') 
 
@@ -25,7 +22,6 @@ def tum_bist_hisselerini_cek():
     print("BIST'teki tüm hisse senetleri çekiliyor...")
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     
-    # 1. Kaynak: Bigpara
     try:
         url = "https://www.bigpara.com/hisseler"
         response = requests.get(url, headers=headers, timeout=10)
@@ -36,7 +32,6 @@ def tum_bist_hisselerini_cek():
     except Exception as e:
         print(f"Bigpara'dan çekilemedi: {e}. Yedek kaynak deneniyor...")
         
-    # 2. Yedek Kaynak: Doviz.com
     try:
         url = "https://www.doviz.com/hisseler"
         response = requests.get(url, headers=headers, timeout=10)
@@ -50,7 +45,6 @@ def tum_bist_hisselerini_cek():
 
 class BistScanner:
     def __init__(self, hisse_listesi):
-        self.tv = TvDatafeed(username=TV_USERNAME, password=TV_PASSWORD)
         self.hisse_listesi = hisse_listesi
         self.results = {
             "Trend ve Momentum": [],
@@ -61,7 +55,16 @@ class BistScanner:
 
     def get_data(self, symbol):
         try:
-            df = self.tv.get_hist(symbol=symbol, exchange='BIST', interval=Interval.in_daily, n_bars=250)
+            # Yahoo Finance üzerinden BIST verisi çekiyoruz (Örn: AKBNK.IS)
+            ticker = yf.Ticker(f"{symbol}.IS")
+            df = ticker.history(period="250d", interval="1d")
+            
+            if df.empty:
+                return None
+                
+            # yfinance büyük harfle başlıyor (Open, High, Low, Close, Volume)
+            # Kodumuzun geri kalanı küçük harfle çalıştığı için sütun isimlerini dönüştürüyoruz
+            df.columns = [col.lower() for col in df.columns]
             return df
         except Exception as e:
             return None
@@ -137,7 +140,6 @@ class BistScanner:
         pdf = FPDF()
         pdf.set_auto_page_break(auto=True, margin=15)
         
-        # Türkçe karakter desteği için Arial kullanıyoruz (FPDF varsayılan)
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
         pdf.cell(0, 10, f"BIST Gece Tarayici Raporu - {datetime.datetime.now().strftime('%d.%m.%Y')}", ln=True, align='C')
@@ -197,7 +199,8 @@ def main():
     for i, hisse in enumerate(BIST_HISSELERI):
         print(f"Taranıyor: [{i+1}/{len(BIST_HISSELERI)}] {hisse}")
         scanner.scan_stock(hisse)
-        time.sleep(1) 
+        # yfinance çok hızlıdır, 0.5 saniye bile yeterli
+        time.sleep(0.5) 
 
     print("PDF olusturuluyor...")
     scanner.generate_pdf()
