@@ -1,0 +1,7 @@
+tvDatafeed
+mplfinance
+fpdf2
+python-telegram-bot
+requests
+pandas
+lxml
