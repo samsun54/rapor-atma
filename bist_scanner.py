@@ -3,7 +3,7 @@ import time
 import datetime
 import pandas as pd
 import yfinance as yf
-from tradingview_screener import ScreenerQuery
+from tradingview_screener import Query  # <-- DOĞRU İSİM BURASI
 import matplotlib
 matplotlib.use('Agg')
 import mplfinance as mpf
@@ -20,9 +20,9 @@ TELEGRAM_CHAT_ID = os.environ.get('TG_CHAT_ID', 'SIZIN_KANAL_CHAT_ID')
 def tum_bist_hisselerini_cek():
     print("Tradingview Screener üzerinden BIST hisseleri çekiliyor...")
     try:
-        query = ScreenerQuery()
-        # 'turkey' piyasasındaki (BIST) tüm hisseleri çeker
-        df = query.get(screen='turkey', columns=['name', 'close'])
+        screener = Query()
+        # 'turkey' ekranındaki tüm hisseleri çeker
+        df = screener.get_screeners_table(screener_name='turkey', columns=['name', 'close'])
         
         # Fiyatı 0'dan büyük olanları filtrele (İşlem görmeyenleri ekleme)
         df = df.dropna(subset=['close'])
@@ -47,7 +47,6 @@ class BistScanner:
 
     def get_data(self, symbol):
         try:
-            # Grafik ve hesaplama için yfinance kullanıyoruz
             ticker = yf.Ticker(f"{symbol}.IS")
             df = ticker.history(period="250d", interval="1d")
             
@@ -179,7 +178,6 @@ async def send_telegram():
 def main():
     start_time = time.time()
     
-    # Artık hisseler Tradingview Screener'dan geliyor
     BIST_HISSELERI = tum_bist_hisselerini_cek()
     if not BIST_HISSELERI:
         print("Hisse listesi bos! Islem iptal edildi.")
