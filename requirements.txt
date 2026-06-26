@@ -1,3 +1,4 @@
+yfinance
 mplfinance
 fpdf2
 python-telegram-bot
