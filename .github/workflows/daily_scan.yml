@@ -25,9 +25,9 @@ jobs:
 
     - name: Install tvDatafeed manually
       run: |
-        wget https://github.com/rongardFtv/tvDatafeed/archive/refs/heads/main.zip
-        unzip main.zip
-        pip install tvDatafeed-main/
+        wget https://github.com/rongardFtv/tvDatafeed/archive/refs/heads/master.zip
+        unzip master.zip
+        pip install tvDatafeed-master/
 
     - name: Install other Python dependencies
       run: |
