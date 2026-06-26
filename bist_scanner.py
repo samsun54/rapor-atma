@@ -2,8 +2,8 @@ import os
 import time
 import datetime
 import pandas as pd
-import requests
 import yfinance as yf
+from tradingview_screener import Stock
 import matplotlib
 matplotlib.use('Agg')
 import mplfinance as mpf
@@ -13,34 +13,26 @@ import asyncio
 from telegram import Bot
 
 # --- AYARLAR ---
-# Artık TradingView şifresi yok! Sadece Telegram bilgileri kalıyor.
 TELEGRAM_BOT_TOKEN = os.environ.get('TG_TOKEN', 'SIZIN_TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.environ.get('TG_CHAT_ID', 'SIZIN_KANAL_CHAT_ID') 
 
-# --- TÜM HİSSELERİ ÇEKME FONKSİYONU ---
+# --- TRADINGVIEW SCREENER İLE TÜM HİSSELERİ ÇEKME ---
 def tum_bist_hisselerini_cek():
-    print("BIST'teki tüm hisse senetleri çekiliyor...")
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-    
+    print("Tradingview Screener üzerinden BIST hisseleri çekiliyor...")
     try:
-        url = "https://www.bigpara.com/hisseler"
-        response = requests.get(url, headers=headers, timeout=10)
-        df = pd.read_html(response.text)[0]
-        hisseler = df['Hisse'].astype(str).str.replace('.E', '', regex=False).dropna().unique().tolist()
-        print(f"Bigpara'dan {len(hisseler)} hisse başarıyla çekildi.")
-        return hisseler
-    except Exception as e:
-        print(f"Bigpara'dan çekilemedi: {e}. Yedek kaynak deneniyor...")
+        screener = Stock()
+        # 'turkey' piyasasındaki (BIST) tüm hisseleri çeker
+        df = screener.get(screen='turkey', columns=['name', 'close'])
         
-    try:
-        url = "https://www.doviz.com/hisseler"
-        response = requests.get(url, headers=headers, timeout=10)
-        df = pd.read_html(response.text)[0]
-        hisseler = df['Kod'].astype(str).str.replace('.E', '', regex=False).dropna().unique().tolist()
-        print(f"Doviz.com'dan {len(hisseler)} hisse başarıyla çekildi.")
+        # Fiyatı 0'dan büyük olanları filtrele (İşlem görmeyenleri ekleme)
+        df = df.dropna(subset=['close'])
+        df = df[df['close'] > 0]
+        
+        hisseler = df['name'].tolist()
+        print(f"Toplam {len(hisseler)} geçerli hisse bulundu.")
         return hisseler
     except Exception as e:
-        print(f"Doviz.com'dan da çekilemedi: {e}")
+        print(f"Screener Hatası: {e}")
         return []
 
 class BistScanner:
@@ -55,15 +47,13 @@ class BistScanner:
 
     def get_data(self, symbol):
         try:
-            # Yahoo Finance üzerinden BIST verisi çekiyoruz (Örn: AKBNK.IS)
+            # Grafik ve hesaplama için yfinance kullanıyoruz
             ticker = yf.Ticker(f"{symbol}.IS")
             df = ticker.history(period="250d", interval="1d")
             
             if df.empty:
                 return None
                 
-            # yfinance büyük harfle başlıyor (Open, High, Low, Close, Volume)
-            # Kodumuzun geri kalanı küçük harfle çalıştığı için sütun isimlerini dönüştürüyoruz
             df.columns = [col.lower() for col in df.columns]
             return df
         except Exception as e:
@@ -189,6 +179,7 @@ async def send_telegram():
 def main():
     start_time = time.time()
     
+    # Artık hisseler Tradingview Screener'dan geliyor
     BIST_HISSELERI = tum_bist_hisselerini_cek()
     if not BIST_HISSELERI:
         print("Hisse listesi bos! Islem iptal edildi.")
@@ -199,7 +190,6 @@ def main():
     for i, hisse in enumerate(BIST_HISSELERI):
         print(f"Taranıyor: [{i+1}/{len(BIST_HISSELERI)}] {hisse}")
         scanner.scan_stock(hisse)
-        # yfinance çok hızlıdır, 0.5 saniye bile yeterli
         time.sleep(0.5) 
 
     print("PDF olusturuluyor...")
