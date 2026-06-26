@@ -1,14 +1,15 @@
 name: BIST Daily Scanner
+
 on:
   schedule:
     - cron: '0 18 * * *'
-  workflow_dispatch:
+  workflow_dispatch: 
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-  steps:
+    steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
@@ -20,18 +21,16 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential libxml2-dev libxslt1-dev python3-dev git
+        sudo apt-get install -y build-essential libxml2-dev libxslt1-dev python3-dev
 
-    - name: Upgrade pip & installer tools
+    - name: Install tvDatafeed from GitHub
       run: |
-        python -m pip install --upgrade pip setuptools wheel
-
-    - name: Install tvDatafeed via Git
-      run: |
-        pip install git+https://github.com/rongardF/tvDatafeed.git
+        curl -sL https://codeload.github.com/rongardFtv/tvDatafeed/tar.gz/refs/heads/main | tar xz
+        pip install tvDatafeed-*/
 
     - name: Install other Python dependencies
       run: |
+        python -m pip install --upgrade pip setuptools wheel
         pip install -r requirements.txt
 
     - name: Run Scanner Script
